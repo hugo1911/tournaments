@@ -1,0 +1,325 @@
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <crow.h>
+#include <nlohmann/json.hpp>
+#include "domain/Match.hpp"
+#include "controller/MatchController.hpp"
+#include "delegate/IMatchDelegate.hpp"
+
+class MatchDelegateMock : public IMatchDelegate {
+public:
+  MOCK_METHOD((std::expected<std::shared_ptr<domain::Match>, Error>), GetMatch,
+              (std::string_view tournamentId, std::string_view matchId), (override));
+  MOCK_METHOD((std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>), GetMatches,
+              (std::string_view tournamentId), (override));
+  MOCK_METHOD((std::expected<std::string, Error>), UpdateMatchScore, (const domain::Match&), (override));
+};
+
+class MatchControllerTest : public ::testing::Test {
+protected:
+  std::shared_ptr<MatchDelegateMock> matchDelegateMock;
+  std::shared_ptr<MatchController> matchController;
+
+  void SetUp() override {
+    matchDelegateMock = std::make_shared<MatchDelegateMock>();
+    matchController = std::make_shared<MatchController>(matchDelegateMock);
+  }
+};
+
+// ============================================================================
+// Tests de GetMatches - GET /tournaments/<TOURNAMENT_ID>/matches
+// ============================================================================
+
+// Validar respuesta exitosa con lista de matches. Response 200
+TEST_F(MatchControllerTest, GetMatches_Ok) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+
+  auto match1 = std::make_shared<domain::Match>();
+  match1->Id() = "match-1";
+  match1->TournamentId() = tournamentId;
+  match1->HomeTeamId() = "team-1";
+  match1->VisitorTeamId() = "team-2";
+  match1->Name() = "W0";
+
+  auto match2 = std::make_shared<domain::Match>();
+  match2->Id() = "match-2";
+  match2->TournamentId() = tournamentId;
+  match2->HomeTeamId() = "team-3";
+  match2->VisitorTeamId() = "team-4";
+  match2->Name() = "W1";
+  match2->MatchScore().homeTeamScore = 1;
+  match2->MatchScore().visitorTeamScore = 2;
+
+  std::vector<std::shared_ptr<domain::Match>> matches = {match1, match2};
+
+  EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(matches)));
+
+  auto response = matchController->getMatches(tournamentId);
+
+  EXPECT_EQ(response.code, crow::OK);
+  auto jsonResponse = nlohmann::json::parse(response.body);
+  EXPECT_EQ(jsonResponse.size(), 2);
+}
+
+// Validar respuesta exitosa con lista vacia. Response 200
+TEST_F(MatchControllerTest, GetMatches_Empty) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::vector<std::shared_ptr<domain::Match>> emptyMatches;
+
+  EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(emptyMatches)));
+
+  auto response = matchController->getMatches(tournamentId);
+
+  EXPECT_EQ(response.code, crow::OK);
+  auto jsonResponse = nlohmann::json::parse(response.body);
+  EXPECT_EQ(jsonResponse.size(), 0);
+}
+
+// Validar respuesta NOT_FOUND cuando el torneo no existe. Response 404
+TEST_F(MatchControllerTest, GetMatches_TournamentNotFound) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440001";
+
+  EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(std::unexpected(Error::NOT_FOUND))));
+
+  auto response = matchController->getMatches(tournamentId);
+
+  EXPECT_EQ(response.code, crow::NOT_FOUND);
+}
+
+// Validar respuesta INTERNAL_SERVER_ERROR en caso de error de sistema. Response 500
+TEST_F(MatchControllerTest, GetMatches_InternalServerError) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+
+  EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(std::unexpected(Error::INTERNAL_ERROR))));
+
+  auto response = matchController->getMatches(tournamentId);
+
+  EXPECT_EQ(response.code, crow::INTERNAL_SERVER_ERROR);
+}
+
+// ============================================================================
+// Tests de GetMatch - GET /tournaments/<TOURNAMENT_ID>/matches/<MATCH_ID>
+// ============================================================================
+
+// Validar respuesta exitosa y contenido completo. Response 200
+TEST_F(MatchControllerTest, GetMatch_Ok) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  auto match = std::make_shared<domain::Match>();
+  match->Id() = matchId;
+  match->TournamentId() = tournamentId;
+  match->HomeTeamId() = "team-1";
+  match->VisitorTeamId() = "team-2";
+  match->Name() = "W0";
+  match->MatchScore().homeTeamScore = 3;
+  match->MatchScore().visitorTeamScore = 2;
+
+  EXPECT_CALL(*matchDelegateMock, GetMatch(tournamentId, matchId))
+      .WillOnce(testing::Return(std::expected<std::shared_ptr<domain::Match>, Error>(match)));
+
+  auto response = matchController->getMatch(tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::OK);
+  auto jsonResponse = nlohmann::json::parse(response.body);
+  EXPECT_EQ(jsonResponse["id"], matchId);
+}
+
+// Validar respuesta NOT_FOUND cuando el partido no existe. Response 404
+TEST_F(MatchControllerTest, GetMatch_NotFound) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "non-existent-match";
+
+  EXPECT_CALL(*matchDelegateMock, GetMatch(tournamentId, matchId))
+      .WillOnce(testing::Return(std::expected<std::shared_ptr<domain::Match>, Error>(std::unexpected(Error::NOT_FOUND))));
+
+  auto response = matchController->getMatch(tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::NOT_FOUND);
+}
+
+// Validar respuesta INTERNAL_SERVER_ERROR en caso de error de sistema. Response 500
+TEST_F(MatchControllerTest, GetMatch_InternalServerError) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  EXPECT_CALL(*matchDelegateMock, GetMatch(tournamentId, matchId))
+      .WillOnce(testing::Return(std::expected<std::shared_ptr<domain::Match>, Error>(std::unexpected(Error::INTERNAL_ERROR))));
+
+  auto response = matchController->getMatch(tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::INTERNAL_SERVER_ERROR);
+}
+
+// ============================================================================
+// Tests de UpdateMatchScore - PATCH /tournaments/<TOURNAMENT_ID>/matches/<MATCH_ID>
+// ============================================================================
+
+// Validar actualizacion exitosa del marcador. Response 200 (OK segun codigo actual)
+TEST_F(MatchControllerTest, UpdateMatchScore_Ok) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  nlohmann::json jsonBody;
+  jsonBody["matchScore"]["homeTeamScore"] = 3;
+  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+
+  crow::request request;
+  request.body = jsonBody.dump();
+
+  EXPECT_CALL(*matchDelegateMock, UpdateMatchScore(testing::_))
+      .WillOnce(testing::Return(std::expected<std::string, Error>(matchId)));
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::OK);
+}
+
+// Validar respuesta NOT_FOUND cuando el partido no existe. Response 404
+TEST_F(MatchControllerTest, UpdateMatchScore_MatchNotFound) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "non-existent-match";
+
+  nlohmann::json jsonBody;
+  jsonBody["matchScore"]["homeTeamScore"] = 3;
+  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+
+  crow::request request;
+  request.body = jsonBody.dump();
+
+  EXPECT_CALL(*matchDelegateMock, UpdateMatchScore(testing::_))
+      .WillOnce(testing::Return(std::expected<std::string, Error>(std::unexpected(Error::NOT_FOUND))));
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::NOT_FOUND);
+}
+
+// Validar respuesta INTERNAL_SERVER_ERROR en caso de error de sistema. Response 500
+TEST_F(MatchControllerTest, UpdateMatchScore_InternalServerError) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  nlohmann::json jsonBody;
+  jsonBody["matchScore"]["homeTeamScore"] = 3;
+  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+
+  crow::request request;
+  request.body = jsonBody.dump();
+
+  EXPECT_CALL(*matchDelegateMock, UpdateMatchScore(testing::_))
+      .WillOnce(testing::Return(std::expected<std::string, Error>(std::unexpected(Error::INTERNAL_ERROR))));
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::INTERNAL_SERVER_ERROR);
+}
+
+// Validar formato JSON invalido. Response 400 (BAD_REQUEST)
+TEST_F(MatchControllerTest, UpdateMatchScore_InvalidJSON) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  crow::request request;
+  request.body = "{invalid json}";
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::BAD_REQUEST);
+  EXPECT_EQ(response.body, "Invalid JSON format");
+}
+
+// Validar que falte el objeto matchScore. Response 400
+TEST_F(MatchControllerTest, UpdateMatchScore_MissingMatchScore) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  nlohmann::json jsonBody;
+  jsonBody["someOtherField"] = "value";
+
+  crow::request request;
+  request.body = jsonBody.dump();
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::BAD_REQUEST);
+  EXPECT_EQ(response.body, "Missing or invalid matchScore object");
+}
+
+// Validar que los scores sean enteros. Response 400
+TEST_F(MatchControllerTest, UpdateMatchScore_InvalidScoreType) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  nlohmann::json jsonBody;
+  jsonBody["matchScore"]["homeTeamScore"] = "three"; // string instead of int
+  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+
+  crow::request request;
+  request.body = jsonBody.dump();
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::BAD_REQUEST);
+  EXPECT_EQ(response.body, "matchScore must contain integer homeTeamScore and visitorTeamScore");
+}
+
+// Validar que los scores sean no negativos. Response 400
+TEST_F(MatchControllerTest, UpdateMatchScore_NegativeScore) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  nlohmann::json jsonBody;
+  jsonBody["matchScore"]["homeTeamScore"] = -1;
+  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+
+  crow::request request;
+  request.body = jsonBody.dump();
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::BAD_REQUEST);
+  EXPECT_EQ(response.body, "Scores must be non-negative");
+}
+
+// Validar que el tournamentId en el body coincida con el path. Response 400
+TEST_F(MatchControllerTest, UpdateMatchScore_TournamentIdMismatch) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  nlohmann::json jsonBody;
+  jsonBody["tournamentId"] = "different-tournament-id";
+  jsonBody["matchScore"]["homeTeamScore"] = 3;
+  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+
+  crow::request request;
+  request.body = jsonBody.dump();
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::BAD_REQUEST);
+  EXPECT_EQ(response.body, "Tournament ID in body does not match path");
+}
+
+// Validar que el matchId en el body coincida con el path. Response 400
+TEST_F(MatchControllerTest, UpdateMatchScore_MatchIdMismatch) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+  std::string matchId = "match-123";
+
+  nlohmann::json jsonBody;
+  jsonBody["id"] = "different-match-id";
+  jsonBody["matchScore"]["homeTeamScore"] = 3;
+  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+
+  crow::request request;
+  request.body = jsonBody.dump();
+
+  auto response = matchController->updateMatchScore(request, tournamentId, matchId);
+
+  EXPECT_EQ(response.code, crow::BAD_REQUEST);
+  EXPECT_EQ(response.body, "Match ID in body does not match path");
+}
