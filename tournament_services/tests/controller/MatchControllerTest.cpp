@@ -94,7 +94,7 @@ TEST_F(MatchControllerTest, GetMatches_InternalServerError) {
   std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
 
   EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
-      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(std::unexpected(Error::INTERNAL_ERROR))));
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(std::unexpected(Error::UNKNOWN_ERROR))));
 
   auto response = matchController->getMatches(tournamentId);
 
@@ -148,7 +148,7 @@ TEST_F(MatchControllerTest, GetMatch_InternalServerError) {
   std::string matchId = "match-123";
 
   EXPECT_CALL(*matchDelegateMock, GetMatch(tournamentId, matchId))
-      .WillOnce(testing::Return(std::expected<std::shared_ptr<domain::Match>, Error>(std::unexpected(Error::INTERNAL_ERROR))));
+      .WillOnce(testing::Return(std::expected<std::shared_ptr<domain::Match>, Error>(std::unexpected(Error::UNKNOWN_ERROR))));
 
   auto response = matchController->getMatch(tournamentId, matchId);
 
@@ -212,7 +212,7 @@ TEST_F(MatchControllerTest, UpdateMatchScore_InternalServerError) {
   request.body = jsonBody.dump();
 
   EXPECT_CALL(*matchDelegateMock, UpdateMatchScore(testing::_))
-      .WillOnce(testing::Return(std::expected<std::string, Error>(std::unexpected(Error::INTERNAL_ERROR))));
+      .WillOnce(testing::Return(std::expected<std::string, Error>(std::unexpected(Error::UNKNOWN_ERROR))));
 
   auto response = matchController->updateMatchScore(request, tournamentId, matchId);
 
