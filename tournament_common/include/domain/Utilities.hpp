@@ -186,6 +186,16 @@ namespace domain {
     inline void to_json(nlohmann::json& json, const Match& match) {
         json = nlohmann::json::object();
 
+        // Match ID
+        if (!match.Id().empty()) {
+            json["id"] = match.Id();
+        }
+
+        // Tournament ID
+        if (!match.TournamentId().empty()) {
+            json["tournamentId"] = match.TournamentId();
+        }
+
         // Home team object
         if (!match.HomeTeamId().empty()) {
             json["home"] = {
