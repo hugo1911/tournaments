@@ -14,15 +14,15 @@
 class MockMatchRepository : public IMatchRepository {
 public:
     MOCK_METHOD(std::shared_ptr<domain::Match>, FindByTournamentIdAndMatchId,
-                (std::string_view tournamentId, std::string_view matchId), (override));
+                (const std::string_view& tournamentId, const std::string_view& matchId), (override));
     MOCK_METHOD(std::vector<std::shared_ptr<domain::Match>>, FindByTournamentId,
-                (std::string_view tournamentId), (override));
+                (const std::string_view& tournamentId), (override));
     MOCK_METHOD(std::shared_ptr<domain::Match>, FindByTournamentIdAndName,
-                (std::string_view tournamentId, std::string_view name), (override));
-    MOCK_METHOD(std::string, Create, (const domain::Match& match), (override));
-    MOCK_METHOD(void, CreateBulk, (const std::vector<domain::Match>& matches), (override));
-    MOCK_METHOD(void, Update, (std::string_view matchId, const domain::Match& match), (override));
-    MOCK_METHOD(void, UpdateMatchScore, (std::string_view matchId, const domain::Score& score), (override));
+                (const std::string_view& tournamentId, const std::string_view& name), (override));
+    MOCK_METHOD(std::vector<std::string>, CreateBulk, (const std::vector<domain::Match>& matches), (override));
+    MOCK_METHOD(void, Update, (const std::string_view& matchId, const domain::Match& match), (override));
+    MOCK_METHOD(void, UpdateMatchScore, (const std::string_view& matchId, const domain::Score& score), (override));
+    MOCK_METHOD(bool, MatchesExistForTournament, (const std::string_view& tournamentId), (override));
 };
 
 // Mock del repositorio de Tournaments
@@ -35,7 +35,7 @@ public:
 // Mock del productor de mensajes
 class MockQueueMessageProducer : public IQueueMessageProducer {
 public:
-    MOCK_METHOD(void, SendMessage, (const std::string& message, const std::string& destination), (override));
+    MOCK_METHOD(void, SendMessage, (const std::string_view& message, const std::string_view& destination), (override));
 };
 
 class MatchDelegateTest : public ::testing::Test {
