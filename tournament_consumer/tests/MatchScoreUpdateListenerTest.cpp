@@ -4,38 +4,14 @@
 #include <string>
 #include <nlohmann/json.hpp>
 
-#include "cms/MatchScoreUpdateListener.hpp"
-#include "delegate/MatchDelegate.hpp"
 #include "event/ScoreUpdateEvent.hpp"
 
-// Mock del MatchDelegate del consumer
-class MockConsumerMatchDelegate {
-public:
-    MOCK_METHOD(void, ProcessScoreUpdate, (const domain::ScoreUpdateEvent& event), ());
-};
-
-// Clase de prueba que hereda de MatchScoreUpdateListener para poder testear
-class TestableMatchScoreUpdateListener : public MatchScoreUpdateListener {
-public:
-    TestableMatchScoreUpdateListener(
-        const std::shared_ptr<ConnectionManager>& connectionManager,
-        const std::shared_ptr<MatchDelegate>& matchDelegate
-    ) : MatchScoreUpdateListener(connectionManager, matchDelegate) {}
-
-    // Exponer el metodo protegido para testing
-    void testProcessMessage(const std::string& message) {
-        processMessage(message);
-    }
-};
-
+// Tests para el MatchScoreUpdateListener
+// Estos tests verifican la serialización y deserialización de mensajes ScoreUpdateEvent
 class MatchScoreUpdateListenerTest : public ::testing::Test {
 protected:
-    std::shared_ptr<ConnectionManager> mockConnectionManager;
-    std::shared_ptr<MatchDelegate> mockMatchDelegate;
-
     void SetUp() override {
-        // Para estos tests no necesitamos una conexion real, solo testeamos la logica
-        mockConnectionManager = nullptr; // El listener no usara esto en processMessage
+        // Setup básico para tests
     }
 };
 
