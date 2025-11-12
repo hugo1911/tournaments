@@ -57,7 +57,7 @@ TEST_F(MatchControllerTest, GetMatches_Ok) {
 
   auto response = matchController->getMatches(crow::request(), tournamentId);
 
-  EXPECT_EQ(response.code, crow::NO_CONTENT);
+  EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
   EXPECT_EQ(jsonResponse.size(), 2);
 }
@@ -72,7 +72,7 @@ TEST_F(MatchControllerTest, GetMatches_Empty) {
 
   auto response = matchController->getMatches(crow::request(), tournamentId);
 
-  EXPECT_EQ(response.code, crow::NO_CONTENT);
+  EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
   EXPECT_EQ(jsonResponse.size(), 0);
 }
@@ -124,7 +124,7 @@ TEST_F(MatchControllerTest, GetMatch_Ok) {
 
   auto response = matchController->getMatch(tournamentId, matchId);
 
-  EXPECT_EQ(response.code, crow::NO_CONTENT);
+  EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
   EXPECT_EQ(jsonResponse["id"], matchId);
 }
@@ -364,7 +364,7 @@ TEST_F(MatchControllerTest, GetMatches_FilterPlayed) {
 
   auto response = matchController->getMatches(request, tournamentId);
 
-  EXPECT_EQ(response.code, crow::NO_CONTENT);
+  EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
   // Should only return 2 matches (match1 and match3, not match2 which is 0-0)
   EXPECT_EQ(jsonResponse.size(), 2);
@@ -407,7 +407,7 @@ TEST_F(MatchControllerTest, GetMatches_FilterPending) {
 
   auto response = matchController->getMatches(request, tournamentId);
 
-  EXPECT_EQ(response.code, crow::NO_CONTENT);
+  EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
   // Should only return 2 matches (match2 and match3, not match1 which has score)
   EXPECT_EQ(jsonResponse.size(), 2);
@@ -440,7 +440,7 @@ TEST_F(MatchControllerTest, GetMatches_NoFilter) {
 
   auto response = matchController->getMatches(request, tournamentId);
 
-  EXPECT_EQ(response.code, crow::NO_CONTENT);
+  EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
   // Should return all matches
   EXPECT_EQ(jsonResponse.size(), 2);
@@ -466,7 +466,7 @@ TEST_F(MatchControllerTest, GetMatches_InvalidFilter) {
 
   auto response = matchController->getMatches(request, tournamentId);
 
-  EXPECT_EQ(response.code, crow::NO_CONTENT);
+  EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
   // Should return all matches (invalid filter is ignored)
   EXPECT_EQ(jsonResponse.size(), 1);

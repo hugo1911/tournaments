@@ -83,6 +83,26 @@ crow::response MatchController::updateMatchScore(const crow::request& request, c
 
   auto requestBody = nlohmann::json::parse(request.body);
 
+  // Validate tournamentId if present in body
+  if (requestBody.contains("tournamentId")) {
+    std::string bodyTournamentId = requestBody["tournamentId"].get<std::string>();
+    if (bodyTournamentId != tournamentId) {
+      response.code = crow::BAD_REQUEST;
+      response.body = "Tournament ID in body does not match path";
+      return response;
+    }
+  }
+
+  // Validate matchId if present in body
+  if (requestBody.contains("id")) {
+    std::string bodyMatchId = requestBody["id"].get<std::string>();
+    if (bodyMatchId != matchId) {
+      response.code = crow::BAD_REQUEST;
+      response.body = "Match ID in body does not match path";
+      return response;
+    }
+  }
+
   // Basic JSON shape validation for score
   if (!requestBody.contains("score") || !requestBody["score"].is_object()) {
     response.code = crow::BAD_REQUEST;
