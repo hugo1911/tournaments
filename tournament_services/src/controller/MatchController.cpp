@@ -21,15 +21,36 @@ static int mapErrorToStatus(const Error err) {
 }
 
 
-crow::response MatchController::getMatches(const std::string& tournamentId) {
+crow::response MatchController::getMatches(const crow::request& request, const std::string& tournamentId) {
   auto res = matchDelegate->GetMatches(tournamentId);
   if (res) {
+    // Get query parameter for filtering
+    std::string showMatches = request.url_params.get("showMatches") ? request.url_params.get("showMatches") : "";
+
     nlohmann::json arr = nlohmann::json::array();
     for (const auto& matchptr : *res) {
       if (matchptr) {
-        arr.push_back(*matchptr);
+        // Apply filter based on query parameter
+        bool includeMatch = true;
+
+        if (showMatches == "played") {
+          // Only include matches that have been played (have a score)
+          // A match is "played" if at least one team has a non-zero score
+          includeMatch = (matchptr->MatchScore().homeTeamScore != 0 || matchptr->MatchScore().visitorTeamScore != 0);
+        } else if (showMatches == "pending") {
+          // Only include matches that haven't been played yet (no score)
+          // A match is pending if both scores are 0 (default/unplayed)
+          includeMatch = (matchptr->MatchScore().homeTeamScore == 0 && matchptr->MatchScore().visitorTeamScore == 0);
+        }
+        // If no filter or unknown filter, include all matches
+
+        if (includeMatch) {
+          arr.push_back(*matchptr);
+        }
       } else {
-        arr.push_back(nullptr);
+        if (showMatches.empty()) {
+          arr.push_back(nullptr);
+        }
       }
     }
     auto response = crow::response{crow::OK, arr.dump()};

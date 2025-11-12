@@ -55,7 +55,7 @@ TEST_F(MatchControllerTest, GetMatches_Ok) {
   EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
       .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(matches)));
 
-  auto response = matchController->getMatches(tournamentId);
+  auto response = matchController->getMatches(crow::request(), tournamentId);
 
   EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
@@ -70,7 +70,7 @@ TEST_F(MatchControllerTest, GetMatches_Empty) {
   EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
       .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(emptyMatches)));
 
-  auto response = matchController->getMatches(tournamentId);
+  auto response = matchController->getMatches(crow::request(), tournamentId);
 
   EXPECT_EQ(response.code, crow::OK);
   auto jsonResponse = nlohmann::json::parse(response.body);
@@ -84,7 +84,7 @@ TEST_F(MatchControllerTest, GetMatches_TournamentNotFound) {
   EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
       .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(std::unexpected(Error::NOT_FOUND))));
 
-  auto response = matchController->getMatches(tournamentId);
+  auto response = matchController->getMatches(crow::request(), tournamentId);
 
   EXPECT_EQ(response.code, crow::NOT_FOUND);
 }
@@ -96,7 +96,7 @@ TEST_F(MatchControllerTest, GetMatches_InternalServerError) {
   EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
       .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(std::unexpected(Error::UNKNOWN_ERROR))));
 
-  auto response = matchController->getMatches(tournamentId);
+  auto response = matchController->getMatches(crow::request(), tournamentId);
 
   EXPECT_EQ(response.code, crow::INTERNAL_SERVER_ERROR);
 }
@@ -322,4 +322,152 @@ TEST_F(MatchControllerTest, UpdateMatchScore_MatchIdMismatch) {
 
   EXPECT_EQ(response.code, crow::BAD_REQUEST);
   EXPECT_EQ(response.body, "Match ID in body does not match path");
+}
+// ============================================================================
+// Tests de Query Parameters - Filtros showMatches
+// ============================================================================
+
+// Validar filtro showMatches=played - solo devuelve matches jugados
+TEST_F(MatchControllerTest, GetMatches_FilterPlayed) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+
+  // Match 1: jugado (con score)
+  auto match1 = std::make_shared<domain::Match>();
+  match1->Id() = "660e8400-e29b-41d4-a716-446655440001";
+  match1->TournamentId() = tournamentId;
+  match1->MatchScore().homeTeamScore = 3;
+  match1->MatchScore().visitorTeamScore = 2;
+
+  // Match 2: pendiente (sin score, 0-0)
+  auto match2 = std::make_shared<domain::Match>();
+  match2->Id() = "770e8400-e29b-41d4-a716-446655440002";
+  match2->TournamentId() = tournamentId;
+  match2->MatchScore().homeTeamScore = 0;
+  match2->MatchScore().visitorTeamScore = 0;
+
+  // Match 3: jugado (con score)
+  auto match3 = std::make_shared<domain::Match>();
+  match3->Id() = "880e8400-e29b-41d4-a716-446655440003";
+  match3->TournamentId() = tournamentId;
+  match3->MatchScore().homeTeamScore = 1;
+  match3->MatchScore().visitorTeamScore = 0;
+
+  std::vector<std::shared_ptr<domain::Match>> matches = {match1, match2, match3};
+
+  EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(matches)));
+
+  // Create request with query parameter
+  crow::request request;
+  request.url = "/tournaments/" + tournamentId + "/matches?showMatches=played";
+  request.url_params = crow::query_string("?showMatches=played");
+
+  auto response = matchController->getMatches(request, tournamentId);
+
+  EXPECT_EQ(response.code, crow::OK);
+  auto jsonResponse = nlohmann::json::parse(response.body);
+  // Should only return 2 matches (match1 and match3, not match2 which is 0-0)
+  EXPECT_EQ(jsonResponse.size(), 2);
+}
+
+// Validar filtro showMatches=pending - solo devuelve matches pendientes
+TEST_F(MatchControllerTest, GetMatches_FilterPending) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+
+  // Match 1: jugado (con score)
+  auto match1 = std::make_shared<domain::Match>();
+  match1->Id() = "660e8400-e29b-41d4-a716-446655440001";
+  match1->TournamentId() = tournamentId;
+  match1->MatchScore().homeTeamScore = 3;
+  match1->MatchScore().visitorTeamScore = 2;
+
+  // Match 2: pendiente (sin score, 0-0)
+  auto match2 = std::make_shared<domain::Match>();
+  match2->Id() = "770e8400-e29b-41d4-a716-446655440002";
+  match2->TournamentId() = tournamentId;
+  match2->MatchScore().homeTeamScore = 0;
+  match2->MatchScore().visitorTeamScore = 0;
+
+  // Match 3: pendiente (sin score, 0-0)
+  auto match3 = std::make_shared<domain::Match>();
+  match3->Id() = "880e8400-e29b-41d4-a716-446655440003";
+  match3->TournamentId() = tournamentId;
+  match3->MatchScore().homeTeamScore = 0;
+  match3->MatchScore().visitorTeamScore = 0;
+
+  std::vector<std::shared_ptr<domain::Match>> matches = {match1, match2, match3};
+
+  EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(matches)));
+
+  // Create request with query parameter
+  crow::request request;
+  request.url = "/tournaments/" + tournamentId + "/matches?showMatches=pending";
+  request.url_params = crow::query_string("?showMatches=pending");
+
+  auto response = matchController->getMatches(request, tournamentId);
+
+  EXPECT_EQ(response.code, crow::OK);
+  auto jsonResponse = nlohmann::json::parse(response.body);
+  // Should only return 2 matches (match2 and match3, not match1 which has score)
+  EXPECT_EQ(jsonResponse.size(), 2);
+}
+
+// Validar sin filtro - devuelve todos los matches
+TEST_F(MatchControllerTest, GetMatches_NoFilter) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+
+  auto match1 = std::make_shared<domain::Match>();
+  match1->Id() = "660e8400-e29b-41d4-a716-446655440001";
+  match1->TournamentId() = tournamentId;
+  match1->MatchScore().homeTeamScore = 3;
+  match1->MatchScore().visitorTeamScore = 2;
+
+  auto match2 = std::make_shared<domain::Match>();
+  match2->Id() = "770e8400-e29b-41d4-a716-446655440002";
+  match2->TournamentId() = tournamentId;
+  match2->MatchScore().homeTeamScore = 0;
+  match2->MatchScore().visitorTeamScore = 0;
+
+  std::vector<std::shared_ptr<domain::Match>> matches = {match1, match2};
+
+  EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(matches)));
+
+  // Create request without query parameter
+  crow::request request;
+  request.url = "/tournaments/" + tournamentId + "/matches";
+
+  auto response = matchController->getMatches(request, tournamentId);
+
+  EXPECT_EQ(response.code, crow::OK);
+  auto jsonResponse = nlohmann::json::parse(response.body);
+  // Should return all matches
+  EXPECT_EQ(jsonResponse.size(), 2);
+}
+
+// Validar filtro invalido - devuelve todos los matches
+TEST_F(MatchControllerTest, GetMatches_InvalidFilter) {
+  std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
+
+  auto match1 = std::make_shared<domain::Match>();
+  match1->Id() = "660e8400-e29b-41d4-a716-446655440001";
+  match1->TournamentId() = tournamentId;
+
+  std::vector<std::shared_ptr<domain::Match>> matches = {match1};
+
+  EXPECT_CALL(*matchDelegateMock, GetMatches(tournamentId))
+      .WillOnce(testing::Return(std::expected<std::vector<std::shared_ptr<domain::Match>>, Error>(matches)));
+
+  // Create request with invalid filter value
+  crow::request request;
+  request.url = "/tournaments/" + tournamentId + "/matches?showMatches=invalid";
+  request.url_params = crow::query_string("?showMatches=invalid");
+
+  auto response = matchController->getMatches(request, tournamentId);
+
+  EXPECT_EQ(response.code, crow::OK);
+  auto jsonResponse = nlohmann::json::parse(response.body);
+  // Should return all matches (invalid filter is ignored)
+  EXPECT_EQ(jsonResponse.size(), 1);
 }

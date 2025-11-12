@@ -15,7 +15,7 @@ class MatchController {
 public:
     explicit MatchController(const std::shared_ptr<IMatchDelegate>& matchDelegate);
     crow::response getMatch(const std::string& tournamentId, const std::string& matchId);
-    crow::response getMatches(const std::string& tournamentId);
+    crow::response getMatches(const crow::request& request, const std::string& tournamentId);
     crow::response updateMatchScore(const crow::request& request, const std::string& tournamentId, const std::string& matchId);
 };
 
