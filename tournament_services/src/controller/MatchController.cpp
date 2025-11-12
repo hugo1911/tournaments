@@ -83,53 +83,39 @@ crow::response MatchController::updateMatchScore(const crow::request& request, c
 
   auto requestBody = nlohmann::json::parse(request.body);
 
-  // Basic JSON shape validation for matchScore
-  if (!requestBody.contains("matchScore") || !requestBody["matchScore"].is_object()) {
+  // Basic JSON shape validation for score
+  if (!requestBody.contains("score") || !requestBody["score"].is_object()) {
     response.code = crow::BAD_REQUEST;
-    response.body = "Missing or invalid matchScore object";
+    response.body = "Missing or invalid score object";
     return response;
   }
 
-  auto& scoreJson = requestBody["matchScore"];
-  if (!scoreJson.contains("homeTeamScore") || !scoreJson.contains("visitorTeamScore") ||
-      !scoreJson["homeTeamScore"].is_number_integer() || !scoreJson["visitorTeamScore"].is_number_integer()) {
+  auto& scoreJson = requestBody["score"];
+  if (!scoreJson.contains("home") || !scoreJson.contains("visitor") ||
+      !scoreJson["home"].is_number_integer() || !scoreJson["visitor"].is_number_integer()) {
     response.code = crow::BAD_REQUEST;
-    response.body = "matchScore must contain integer homeTeamScore and visitorTeamScore";
+    response.body = "score must contain integer home and visitor";
     return response;
   }
 
-  int home = scoreJson["homeTeamScore"].get<int>();
-  int visitor = scoreJson["visitorTeamScore"].get<int>();
+  int home = scoreJson["home"].get<int>();
+  int visitor = scoreJson["visitor"].get<int>();
   if (home < 0 || visitor < 0) {
     response.code = crow::BAD_REQUEST;
     response.body = "Scores must be non-negative";
     return response;
   }
 
-  // Deserialize into domain::Match (assumes nlohmann conversion exists)
-  domain::Match matchObj = requestBody;
-
-  // Ensure tournamentId matches path or is filled
-  if (!matchObj.TournamentId().empty() && matchObj.TournamentId() != tournamentId) {
-    response.code = crow::BAD_REQUEST;
-    response.body = "Tournament ID in body does not match path";
-    return response;
-  }
+  // Create Match object with score
+  domain::Match matchObj;
   matchObj.TournamentId() = tournamentId;
-
-  // Allow empty ID (client didn't set it) or ID equal to path; reject otherwise
-  if (!matchObj.Id().empty() && matchObj.Id() != matchId) {
-    response.code = crow::BAD_REQUEST;
-    response.body = "Match ID in body does not match path";
-    return response;
-  }
   matchObj.Id() = matchId;
+  matchObj.MatchScore().homeTeamScore = home;
+  matchObj.MatchScore().visitorTeamScore = visitor;
 
   auto res = matchDelegate->UpdateMatchScore(matchObj);
   if (res) {
-    response.code = crow::OK;
-    response.body = *res;
-    response.add_header(CONTENT_TYPE_HEADER, JSON_CONTENT_TYPE);
+    response.code = crow::NO_CONTENT; // HTTP 204
   } else {
     response.code = mapErrorToStatus(res.error());
     response.body = "Error";

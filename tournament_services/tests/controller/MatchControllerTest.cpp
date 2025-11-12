@@ -57,7 +57,7 @@ TEST_F(MatchControllerTest, GetMatches_Ok) {
 
   auto response = matchController->getMatches(crow::request(), tournamentId);
 
-  EXPECT_EQ(response.code, crow::OK);
+  EXPECT_EQ(response.code, crow::NO_CONTENT);
   auto jsonResponse = nlohmann::json::parse(response.body);
   EXPECT_EQ(jsonResponse.size(), 2);
 }
@@ -72,7 +72,7 @@ TEST_F(MatchControllerTest, GetMatches_Empty) {
 
   auto response = matchController->getMatches(crow::request(), tournamentId);
 
-  EXPECT_EQ(response.code, crow::OK);
+  EXPECT_EQ(response.code, crow::NO_CONTENT);
   auto jsonResponse = nlohmann::json::parse(response.body);
   EXPECT_EQ(jsonResponse.size(), 0);
 }
@@ -124,7 +124,7 @@ TEST_F(MatchControllerTest, GetMatch_Ok) {
 
   auto response = matchController->getMatch(tournamentId, matchId);
 
-  EXPECT_EQ(response.code, crow::OK);
+  EXPECT_EQ(response.code, crow::NO_CONTENT);
   auto jsonResponse = nlohmann::json::parse(response.body);
   EXPECT_EQ(jsonResponse["id"], matchId);
 }
@@ -159,14 +159,14 @@ TEST_F(MatchControllerTest, GetMatch_InternalServerError) {
 // Tests de UpdateMatchScore - PATCH /tournaments/<TOURNAMENT_ID>/matches/<MATCH_ID>
 // ============================================================================
 
-// Validar actualizacion exitosa del marcador. Response 200 (OK segun codigo actual)
+// Validar actualizacion exitosa del marcador. Response 204 (NO_CONTENT)
 TEST_F(MatchControllerTest, UpdateMatchScore_Ok) {
   std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
   std::string matchId = "match-123";
 
   nlohmann::json jsonBody;
-  jsonBody["matchScore"]["homeTeamScore"] = 3;
-  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+  jsonBody["score"]["home"] = 3;
+  jsonBody["score"]["visitor"] = 2;
 
   crow::request request;
   request.body = jsonBody.dump();
@@ -176,7 +176,7 @@ TEST_F(MatchControllerTest, UpdateMatchScore_Ok) {
 
   auto response = matchController->updateMatchScore(request, tournamentId, matchId);
 
-  EXPECT_EQ(response.code, crow::OK);
+  EXPECT_EQ(response.code, crow::NO_CONTENT);
 }
 
 // Validar respuesta NOT_FOUND cuando el partido no existe. Response 404
@@ -185,8 +185,8 @@ TEST_F(MatchControllerTest, UpdateMatchScore_MatchNotFound) {
   std::string matchId = "non-existent-match";
 
   nlohmann::json jsonBody;
-  jsonBody["matchScore"]["homeTeamScore"] = 3;
-  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+  jsonBody["score"]["home"] = 3;
+  jsonBody["score"]["visitor"] = 2;
 
   crow::request request;
   request.body = jsonBody.dump();
@@ -205,8 +205,8 @@ TEST_F(MatchControllerTest, UpdateMatchScore_InternalServerError) {
   std::string matchId = "match-123";
 
   nlohmann::json jsonBody;
-  jsonBody["matchScore"]["homeTeamScore"] = 3;
-  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+  jsonBody["score"]["home"] = 3;
+  jsonBody["score"]["visitor"] = 2;
 
   crow::request request;
   request.body = jsonBody.dump();
@@ -233,8 +233,8 @@ TEST_F(MatchControllerTest, UpdateMatchScore_InvalidJSON) {
   EXPECT_EQ(response.body, "Invalid JSON format");
 }
 
-// Validar que falte el objeto matchScore. Response 400
-TEST_F(MatchControllerTest, UpdateMatchScore_MissingMatchScore) {
+// Validar que falte el objeto score. Response 400
+TEST_F(MatchControllerTest, UpdateMatchScore_MissingScore) {
   std::string tournamentId = "550e8400-e29b-41d4-a716-446655440000";
   std::string matchId = "match-123";
 
@@ -247,7 +247,7 @@ TEST_F(MatchControllerTest, UpdateMatchScore_MissingMatchScore) {
   auto response = matchController->updateMatchScore(request, tournamentId, matchId);
 
   EXPECT_EQ(response.code, crow::BAD_REQUEST);
-  EXPECT_EQ(response.body, "Missing or invalid matchScore object");
+  EXPECT_EQ(response.body, "Missing or invalid score object");
 }
 
 // Validar que los scores sean enteros. Response 400
@@ -256,8 +256,8 @@ TEST_F(MatchControllerTest, UpdateMatchScore_InvalidScoreType) {
   std::string matchId = "match-123";
 
   nlohmann::json jsonBody;
-  jsonBody["matchScore"]["homeTeamScore"] = "three"; // string instead of int
-  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+  jsonBody["score"]["home"] = "three"; // string instead of int
+  jsonBody["score"]["visitor"] = 2;
 
   crow::request request;
   request.body = jsonBody.dump();
@@ -265,7 +265,7 @@ TEST_F(MatchControllerTest, UpdateMatchScore_InvalidScoreType) {
   auto response = matchController->updateMatchScore(request, tournamentId, matchId);
 
   EXPECT_EQ(response.code, crow::BAD_REQUEST);
-  EXPECT_EQ(response.body, "matchScore must contain integer homeTeamScore and visitorTeamScore");
+  EXPECT_EQ(response.body, "score must contain integer home and visitor");
 }
 
 // Validar que los scores sean no negativos. Response 400
@@ -274,8 +274,8 @@ TEST_F(MatchControllerTest, UpdateMatchScore_NegativeScore) {
   std::string matchId = "match-123";
 
   nlohmann::json jsonBody;
-  jsonBody["matchScore"]["homeTeamScore"] = -1;
-  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+  jsonBody["score"]["home"] = -1;
+  jsonBody["score"]["visitor"] = 2;
 
   crow::request request;
   request.body = jsonBody.dump();
@@ -293,8 +293,8 @@ TEST_F(MatchControllerTest, UpdateMatchScore_TournamentIdMismatch) {
 
   nlohmann::json jsonBody;
   jsonBody["tournamentId"] = "different-tournament-id";
-  jsonBody["matchScore"]["homeTeamScore"] = 3;
-  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+  jsonBody["score"]["home"] = 3;
+  jsonBody["score"]["visitor"] = 2;
 
   crow::request request;
   request.body = jsonBody.dump();
@@ -312,8 +312,8 @@ TEST_F(MatchControllerTest, UpdateMatchScore_MatchIdMismatch) {
 
   nlohmann::json jsonBody;
   jsonBody["id"] = "different-match-id";
-  jsonBody["matchScore"]["homeTeamScore"] = 3;
-  jsonBody["matchScore"]["visitorTeamScore"] = 2;
+  jsonBody["score"]["home"] = 3;
+  jsonBody["score"]["visitor"] = 2;
 
   crow::request request;
   request.body = jsonBody.dump();
@@ -364,7 +364,7 @@ TEST_F(MatchControllerTest, GetMatches_FilterPlayed) {
 
   auto response = matchController->getMatches(request, tournamentId);
 
-  EXPECT_EQ(response.code, crow::OK);
+  EXPECT_EQ(response.code, crow::NO_CONTENT);
   auto jsonResponse = nlohmann::json::parse(response.body);
   // Should only return 2 matches (match1 and match3, not match2 which is 0-0)
   EXPECT_EQ(jsonResponse.size(), 2);
@@ -407,7 +407,7 @@ TEST_F(MatchControllerTest, GetMatches_FilterPending) {
 
   auto response = matchController->getMatches(request, tournamentId);
 
-  EXPECT_EQ(response.code, crow::OK);
+  EXPECT_EQ(response.code, crow::NO_CONTENT);
   auto jsonResponse = nlohmann::json::parse(response.body);
   // Should only return 2 matches (match2 and match3, not match1 which has score)
   EXPECT_EQ(jsonResponse.size(), 2);
@@ -440,7 +440,7 @@ TEST_F(MatchControllerTest, GetMatches_NoFilter) {
 
   auto response = matchController->getMatches(request, tournamentId);
 
-  EXPECT_EQ(response.code, crow::OK);
+  EXPECT_EQ(response.code, crow::NO_CONTENT);
   auto jsonResponse = nlohmann::json::parse(response.body);
   // Should return all matches
   EXPECT_EQ(jsonResponse.size(), 2);
@@ -466,7 +466,7 @@ TEST_F(MatchControllerTest, GetMatches_InvalidFilter) {
 
   auto response = matchController->getMatches(request, tournamentId);
 
-  EXPECT_EQ(response.code, crow::OK);
+  EXPECT_EQ(response.code, crow::NO_CONTENT);
   auto jsonResponse = nlohmann::json::parse(response.body);
   // Should return all matches (invalid filter is ignored)
   EXPECT_EQ(jsonResponse.size(), 1);
